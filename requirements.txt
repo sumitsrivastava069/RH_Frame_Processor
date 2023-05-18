@@ -1,0 +1,4 @@
+opencv-python
+datetime
+thread6
+flask
