@@ -135,7 +135,7 @@ import threading
 app = Flask(__name__)
 
 # Specify the folder path
-folder_path = './frame_images/'
+folder_path = './Frames/'
 last_processed_time = 0
 
 def process_images():
