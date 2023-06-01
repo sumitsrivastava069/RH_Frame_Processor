@@ -97,7 +97,7 @@ def extract_text(image, bbox):
     gray = cv2.cvtColor(roi_bgr, cv2.COLOR_BGR2GRAY)
     now = datetime.now()
     timestamp = now.strftime("%Y%m%d%H%M%S")
-    plate_filename = f"./numberplate_images/plate_{timestamp}.jpg"
+    plate_filename = f"./Number_plate/plate_{timestamp}.jpg"
     cv2.imwrite(plate_filename, gray)
 
   
