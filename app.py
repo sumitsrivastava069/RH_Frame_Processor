@@ -87,7 +87,7 @@ def drawings(image, boxes_np,confidences_np,index):
 
 
 
-csv1_file = './Frames/frame.csv'
+csv1_file = './Frames/output.csv'
 
 def write_to_csv(image_name, timestamp, number_plate_text):
     with open(csv1_file, 'r') as file:
@@ -230,7 +230,7 @@ def process_images():
 
     while True:
         file_list = os.listdir(folder_path)
-        filtered_files = [f for f in file_list if os.path.getmtime(os.path.join(folder_path, f)) > last_processed_time]
+        filtered_files = [f for f in file_list if f.lower().endswith(('.jpg', '.jpeg')) and os.path.getmtime(os.path.join(folder_path, f)) > last_processed_time]
         sorted_files = sorted(filtered_files, key=lambda x: os.path.getmtime(os.path.join(folder_path, x)), reverse=True)
 
         for latest_image in sorted_files:
