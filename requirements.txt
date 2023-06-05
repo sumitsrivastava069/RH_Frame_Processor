@@ -3,3 +3,4 @@ datetime
 thread6
 flask
 boto3
+Pillow
