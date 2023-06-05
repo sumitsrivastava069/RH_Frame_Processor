@@ -5,6 +5,9 @@ from datetime import datetime
 import time
 import threading
 from flask import Flask
+import boto3
+from io import BytesIO
+from PIL import Image
 
 # settings
 INPUT_WIDTH =  640
@@ -55,6 +58,7 @@ def non_max_supression(input_image,detections):
         confidences.append(confidence)
         boxes.append(box)
 
+
   # clean
   boxes_np = np.array(boxes).tolist()
   confidences_np = np.array(confidences).tolist()
@@ -83,22 +87,84 @@ def drawings(image, boxes_np,confidences_np,index):
 
 
 
+csv1_file = './Frames/frame.csv'
+
+def write_to_csv(image_name, timestamp, number_plate_text):
+    with open(csv1_file, 'r') as file:
+        reader = csv.reader(file)
+        existing_entries = set(row[2] for row in reader)  # Assuming number plate is in the third column
+
+    if number_plate_text not in existing_entries:
+        with open(csv1_file, 'a', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow([image_name, timestamp, number_plate_text])
+
+def aws_textract(your_numpy_array):
+    img = Image.fromarray(np.uint8(your_numpy_array))
+
+    img_byte_arr = BytesIO()
+    img.save(img_byte_arr, format='PNG')
+    img_byte_arr.seek(0)
+
+    session = boto3.Session(
+        aws_access_key_id=access_key,
+        aws_secret_access_key=secret_key
+    )
+
+    client = session.client('textract', region_name='ap-south-1')
+    response = client.detect_document_text(Document={'Bytes': img_byte_arr.read()})
+
+    blocks = response['Blocks']
+    if len(blocks) > 1:
+        return blocks[1]['Text']
+    else:
+        return ''
+
+def compare_number_plates(current_number_plate):
+    with open(csv1_file, 'r') as file:
+        reader = csv.reader(file)
+        existing_number_plates = set()
+        for plate in reader:
+            if len(plate) > 2:
+                existing_number_plates.add(plate[2])  # Assuming the number plate is in the third column
+        if current_number_plate in existing_number_plates:
+            return True
+    return False
+
+
+def update_csv(image_path, timestamp, number_plate_text):
+    filename = os.path.basename(image_path)
+
+    with open(csv1_file, 'a', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow([filename, timestamp, number_plate_text])
 ##Not comparing
 numberis = []
 numberis.append('up53aj9382')
+access_key='AKIASVXC3DJ65DYMMWQQ'
+secret_key='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'
 
 def extract_text(image, bbox):
-  x, y, w, h = bbox
-  roi = image[y:y+h, x:x+w]
-  if 0 in roi.shape:
-    return ''
-  else:
+    x, y, w, h = bbox
+    roi = image[y:y+h, x:x+w]
+    
+    if 0 in roi.shape:
+        return ''
+    
     roi_bgr = cv2.cvtColor(roi, cv2.COLOR_RGB2BGR)
     gray = cv2.cvtColor(roi_bgr, cv2.COLOR_BGR2GRAY)
+    text = str(aws_textract(gray))
+    
     now = datetime.now()
     timestamp = now.strftime("%Y%m%d%H%M%S")
-    plate_filename = f"./Number_plate/plate_{timestamp}.jpg"
-    cv2.imwrite(plate_filename, gray)
+    
+    
+    if not compare_number_plates(text):
+        plate_filename = f"./Number_plate/plate_{timestamp}.jpg"
+        cv2.imwrite(plate_filename, gray)
+        write_to_csv(plate_filename, timestamp, text)
+        print(text)
+
 
   
 
@@ -131,28 +197,58 @@ import cv2
 import os
 import time
 import threading
+import csv
 
 app = Flask(__name__)
 
 # Specify the folder path
 folder_path = './Frames/'
 last_processed_time = 0
+csv_file = './Frames/frames.csv'
+processed_filenames = set()
+
+def load_processed_filenames():
+    if os.path.exists(csv_file):
+        with open(csv_file, 'r') as file:
+            reader = csv.reader(file)
+            for row in reader:
+                if len(row) > 0:
+                    filename = row[0]
+                    processed_filenames.add(filename)
+
+def update_csv(image_path, timestamp):
+    filename = os.path.basename(image_path)
+    
+    with open(csv_file, 'a', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow([filename, timestamp])
 
 def process_images():
     global last_processed_time
+
+    load_processed_filenames()
 
     while True:
         file_list = os.listdir(folder_path)
         filtered_files = [f for f in file_list if os.path.getmtime(os.path.join(folder_path, f)) > last_processed_time]
         sorted_files = sorted(filtered_files, key=lambda x: os.path.getmtime(os.path.join(folder_path, x)), reverse=True)
 
-        if sorted_files:
-            latest_image = sorted_files[0]
+        for latest_image in sorted_files:
             image_path = os.path.join(folder_path, latest_image)
-            print("Processing image:", latest_image)
-            image = cv2.imread(image_path)
-            results = yolo_prediction(image, net)
-            last_processed_time = os.path.getmtime(image_path)
+            if latest_image not in processed_filenames:
+                print("Processing image:", latest_image)
+                image = cv2.imread(image_path)
+                # Perform image processing
+                results = yolo_prediction(image, net)
+
+                # Get the timestamp
+                timestamp = os.path.getmtime(image_path)
+
+                # Update CSV
+                update_csv(image_path, timestamp)
+
+                last_processed_time = os.path.getmtime(image_path)
+                processed_filenames.add(latest_image)  # Add the processed image filename to the set
 
         time.sleep(5)
 
@@ -164,4 +260,3 @@ image_processing_thread.start()
 # Run the Flask app
 if __name__ == '__main__':
     app.run()
-
