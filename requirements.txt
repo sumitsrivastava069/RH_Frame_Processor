@@ -2,3 +2,4 @@ opencv-python
 datetime
 thread6
 flask
+boto3
