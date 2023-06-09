@@ -8,6 +8,11 @@ from flask import Flask
 import boto3
 from io import BytesIO
 from PIL import Image
+import random
+import csv
+
+
+
 
 # settings
 INPUT_WIDTH =  640
@@ -75,9 +80,6 @@ def drawings(image, boxes_np,confidences_np,index):
     bb_conf = confidences_np[ind]
     conf_text = 'plate: {:.0f}%'.format(bb_conf*100)
     license_text = extract_text(image,boxes_np[ind])
-
-
-
     cv2.rectangle(image,(x,y),(x+w,y+h),(255,0,255),2)
     cv2.rectangle(image,(x,y-30),(x+w,y),(255,0,255),-1)
     cv2.rectangle(image,(x,y+h),(x+w,y+h+30),(0,0,0),-1)
@@ -87,7 +89,8 @@ def drawings(image, boxes_np,confidences_np,index):
 
 
 
-csv1_file = './Frames/output.csv'
+csv1_file = './frameprocessorstorage/numberplates_data.csv'
+
 
 def write_to_csv(image_name, timestamp, number_plate_text):
     with open(csv1_file, 'r') as file:
@@ -95,9 +98,11 @@ def write_to_csv(image_name, timestamp, number_plate_text):
         existing_entries = set(row[2] for row in reader)  # Assuming number plate is in the third column
 
     if number_plate_text not in existing_entries:
+        color = random.choice(['Green', 'Red'])
         with open(csv1_file, 'a', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow([image_name, timestamp, number_plate_text])
+            writer.writerow([image_name, timestamp, number_plate_text, color])
+
 
 def aws_textract(your_numpy_array):
     img = Image.fromarray(np.uint8(your_numpy_array))
@@ -160,7 +165,7 @@ def extract_text(image, bbox):
     
     
     if not compare_number_plates(text):
-        plate_filename = f"./Number_plate/plate_{timestamp}.jpg"
+        plate_filename = f"./numberplateimages/plate_{timestamp}.jpg"
         cv2.imwrite(plate_filename, gray)
         write_to_csv(plate_filename, timestamp, text)
         print(text)
@@ -192,19 +197,14 @@ def yolo_prediction(img,net):
 
 
 
-from flask import Flask
-import cv2
-import os
-import time
-import threading
-import csv
+
 
 app = Flask(__name__)
 
 # Specify the folder path
-folder_path = './Frames/'
+folder_path = './frameprocessorstorage/'
 last_processed_time = 0
-csv_file = './Frames/frames.csv'
+csv_file = './frameprocessorstorage/processed_frames.csv'
 processed_filenames = set()
 
 def load_processed_filenames():
