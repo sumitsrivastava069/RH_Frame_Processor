@@ -85,7 +85,7 @@ def drawings(image, boxes_np,confidences_np,index):
 
 
 
-csv1_file = './frameprocessorstorage/numberplates_data.csv'
+csv1_file = './numberplateimages /numberplates_data.csv'
 
 
 def write_to_csv(frame_name, image_name, timestamp, number_plate_text):
