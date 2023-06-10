@@ -4,7 +4,7 @@ WORKDIR /app
 
 # Copy the source code to the working directory
 COPY . .
-RUN mkdir -p /app/frameprocessorstorage  && mkdir -p /app/numberplateimages && chmod -R 777 /app
+RUN mkdir -p /app/frameprocessorstorage  && mkdir -p /app/numberplateimages && mkdir - p /app/yoloimages && chmod -R 777 /app
 #python -m pip install --upgrade pip
 # Install any necessary dependencies
 RUN pip install --no-cache-dir -r requirements.txt
